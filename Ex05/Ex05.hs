@@ -61,50 +61,67 @@ type Col = Int
 --              row positions in the column.
 --      HINT 2: you may want to use the list monad.
 
+-- extend :: Queens -> [Queens]
+-- extend queens = trace ("Extending: " ++ show queens) $ do
+--   let col = length queens
+--   row <- [0..7]
+--   guard (validRow row col queens)
+--   let result = queens ++ [row]
+--   trace ("Valid extension: " ++ show [result]) [result]
+
+-- validRow :: Row -> Col -> Queens -> Bool
+-- validRow row col queens =
+--   all cond (zip queens [0 .. col])
+--   where
+--     cond (r, c) =
+--       let result = row /= r && abs (col - c) /= abs (row - r)
+--        in trace ("Checking conflict for position (" ++ show c ++ ", " ++ show r ++ ") with new queen at (" ++ show col ++ ", " ++ show row ++ "): " ++ show result) result
+
 extend :: Queens -> [Queens]
-extend queens = trace ("Extending: " ++ show queens) $ do
+extend queens = do
   let col = length queens
-  row <- [0..7]
+  row <- [0 .. 7]
   guard (validRow row col queens)
-  let result = queens ++ [row]
-  trace ("Valid extension: " ++ show [result]) [result]
+  return (queens ++ [row])
 
 validRow :: Row -> Col -> Queens -> Bool
 validRow row col queens =
-  all cond (zip queens [0 .. col])
-  where
-    cond (r, c) =
-      let result = row /= r && abs (col - c) /= abs (row - r)
-       in trace ("Checking conflict for position (" ++ show c ++ ", " ++ show r ++ ") with new queen at (" ++ show col ++ ", " ++ show row ++ "): " ++ show result) result
+  all (\(r, c) -> row /= r && abs (col - c) /= abs (row - r)) (zip queens [0 .. col])
 
 -- Test cases for the extend function
 testExtend1 :: Bool
 testExtend1 =
-  let queens = [1]
-      expected = [[0],[1],[2],[3],[4],[5],[6],[7]]
-  in sort (extend queens) == sort expected
+  let queens = []
+      expected = [[0], [1], [2], [3], [4], [5], [6], [7]]
+   in sort (extend queens) == sort expected
 
 testExtend2 :: Bool
 testExtend2 =
   let queens = [1]
-      expected = [[1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8]]
-  in extend queens == expected
+      expected = [[1, 3], [1, 4], [1, 5], [1, 6], [1, 7]]
+   in sort (extend queens) == sort expected
 
 testExtend3 :: Bool
 testExtend3 =
   let queens = [1, 3]
-      expected = [[1, 3, 5], [1, 3, 6], [1, 3, 7], [1, 3, 8]]
-  in extend queens == expected
+      expected = [[1, 3, 0], [1, 3, 5], [1, 3, 6], [1, 3, 7]]
+   in sort (extend queens) == sort expected
 
 testExtend4 :: Bool
 testExtend4 =
   let queens = [1, 3, 5]
-      expected = [] :: [Queens]
-  in extend queens == expected
+      expected = [[1, 3, 5, 0], [1, 3, 5, 2], [1, 3, 5, 7]] 
+   in sort (extend queens) == sort expected
+
+testExtend5 :: Bool
+testExtend5 =
+  let queens = [1, 3, 5, 0, 4]
+      expected = [] 
+   in sort (extend queens) == sort expected
 
 -- Aggregate all tests
 runTests :: [Bool]
-runTests = [testExtend1, testExtend2, testExtend3, testExtend4]
+runTests = [testExtend1, testExtend2, testExtend3, testExtend4, testExtend5]
 
 -- Check if all tests passed
 allTestsPassed :: Bool
