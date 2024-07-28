@@ -1,7 +1,9 @@
 module Ex05 where
 
+import Control.Monad.List
+import Control.Monad.State (State, evalState, get, put)
 import Data.List
-import Control.Monad.State (State, get, put, evalState)
+import Debug.Trace
 
 -- Task 1. Eight Queens on a Chessboard
 
@@ -18,14 +20,14 @@ import Control.Monad.State (State, get, put, evalState)
 -- all the `#` squares, but not the `-` squares.
 --
 --  0 1 2 3 4 5 6 7
---0 # # # - - - - -
---1 # Q # # # # # #
---2 # # # - - - - -
---3 - # - # - - - -
---4 - # - - # - - -
---5 - # - - - # - -
---6 - # - - - - # -
---7 - # - - - - - #
+-- 0 # # # - - - - -
+-- 1 # Q # # # # # #
+-- 2 # # # - - - - -
+-- 3 - # - # - - - -
+-- 4 - # - - # - - -
+-- 5 - # - - - # - -
+-- 6 - # - - - - # -
+-- 7 - # - - - - - #
 --
 -- The eight queens puzzle is the problem of placing eight chess
 -- queens on the checkerboard in such a way that no two of the
@@ -45,7 +47,10 @@ import Control.Monad.State (State, get, put, evalState)
 -- queens were only placed in the first few columns.
 
 type Row = Int
+
 type Queens = [Row] -- position of queen in each column
+
+type Col = Int
 
 -- 1.a. Implement a function `extend` that takes a single partial solution
 --      containing `n` queens in the first `n` columns, and
@@ -57,7 +62,53 @@ type Queens = [Row] -- position of queen in each column
 --      HINT 2: you may want to use the list monad.
 
 extend :: Queens -> [Queens]
-extend = error "'extend' not implemented"
+extend queens = trace ("Extending: " ++ show queens) $ do
+  let col = length queens
+  row <- [0..7]
+  guard (validRow row col queens)
+  let result = queens ++ [row]
+  trace ("Valid extension: " ++ show [result]) [result]
+
+validRow :: Row -> Col -> Queens -> Bool
+validRow row col queens =
+  all cond (zip queens [0 .. col])
+  where
+    cond (r, c) =
+      let result = row /= r && abs (col - c) /= abs (row - r)
+       in trace ("Checking conflict for position (" ++ show c ++ ", " ++ show r ++ ") with new queen at (" ++ show col ++ ", " ++ show row ++ "): " ++ show result) result
+
+-- Test cases for the extend function
+testExtend1 :: Bool
+testExtend1 =
+  let queens = [1]
+      expected = [[0],[1],[2],[3],[4],[5],[6],[7]]
+  in sort (extend queens) == sort expected
+
+testExtend2 :: Bool
+testExtend2 =
+  let queens = [1]
+      expected = [[1, 3], [1, 4], [1, 5], [1, 6], [1, 7], [1, 8]]
+  in extend queens == expected
+
+testExtend3 :: Bool
+testExtend3 =
+  let queens = [1, 3]
+      expected = [[1, 3, 5], [1, 3, 6], [1, 3, 7], [1, 3, 8]]
+  in extend queens == expected
+
+testExtend4 :: Bool
+testExtend4 =
+  let queens = [1, 3, 5]
+      expected = [] :: [Queens]
+  in extend queens == expected
+
+-- Aggregate all tests
+runTests :: [Bool]
+runTests = [testExtend1, testExtend2, testExtend3, testExtend4]
+
+-- Check if all tests passed
+allTestsPassed :: Bool
+allTestsPassed = and runTests
 
 -- 1.b. Implement a function that, given a row position `p`,
 --      returns the list of all possible solutions to the eight
@@ -65,9 +116,6 @@ extend = error "'extend' not implemented"
 --      is placed in the row position `p`.
 solutionStartWith :: Int -> [Queens]
 solutionStartWith = error "'solutionStartWith' not implemented"
-
-
-
 
 -- Task 2. RPN calculator
 -- Reverse Polish notation (RPN) is a way of writing arithmetic
@@ -115,8 +163,8 @@ data UserAction
 
 push :: Double -> State Stack ()
 push x =
-  get        >>= \xs ->
-  put (x:xs)
+  get >>= \xs ->
+    put (x : xs)
 
 -- 2.a. Implement the pop operation which removes and returns
 --      the top element of the stack. Keep in mind that empty
@@ -128,8 +176,8 @@ pop = error "'pop' not implemented"
 -- of the current stack.
 clear :: State Stack ()
 clear =
-  pop        >>= \_ ->
-  return ()
+  pop >>= \_ ->
+    return ()
 
 -- 2.b. Implement the AllClear user action, which removes all
 --      elements from the stack.
@@ -161,10 +209,10 @@ app1 = error "'app1' not implemented"
 app :: [UserAction] -> State Stack Stack
 app = error "'app' not implemented"
 
-
 -- you can use `runCalc` to test your implementation. E.g.
--- *> runCalc [Enter 3, Enter 7, Enter 5, Arith (-), Arith (*)]
+
+-- * > runCalc [Enter 3, Enter 7, Enter 5, Arith (-), Arith (*)]
+
 -- [6.0]
 runCalc :: [UserAction] -> Stack
 runCalc xs = evalState (app xs) []
-
