@@ -17,9 +17,20 @@ import Text.Read (readMaybe)
 -- You will want to use the `readFile` and `writeFile`
 -- procedures.
 
+-- with referemce to https://www.educative.io/answers/how-to-remove-duplicates-from-a-list-in-haskell
+removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates [] = []
+removeDuplicates (x:xs) = x : removeDuplicates (filter (/= x) xs)
+
 onlyUnique :: FilePath -> FilePath -> IO ()
 onlyUnique inputFile outputFile =
-  error "'onlyUnique' not implemented"
+  do
+    contents <- readFile inputFile
+    print (lines contents)
+    let newContents = removeDuplicates $ lines contents
+    print newContents
+    unless (null newContents) $
+        writeFile outputFile $ unlines newContents
 
 -- TASK 2 --
 
