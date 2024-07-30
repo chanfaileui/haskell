@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+
 module Ex06 where
 
 import Control.Monad.State
@@ -18,9 +19,9 @@ import Text.Read (readMaybe)
 -- procedures.
 
 -- with referemce to https://www.educative.io/answers/how-to-remove-duplicates-from-a-list-in-haskell
-removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates :: (Eq a) => [a] -> [a]
 removeDuplicates [] = []
-removeDuplicates (x:xs) = x : removeDuplicates (filter (/= x) xs)
+removeDuplicates (x : xs) = x : removeDuplicates (filter (/= x) xs)
 
 onlyUnique :: FilePath -> FilePath -> IO ()
 onlyUnique inputFile outputFile =
@@ -29,8 +30,9 @@ onlyUnique inputFile outputFile =
     print (lines contents)
     let newContents = removeDuplicates $ lines contents
     print newContents
-    unless (null newContents) $
-        writeFile outputFile $ unlines newContents
+    when (length newContents > 0) $
+      writeFile outputFile $
+        unlines newContents
 
 -- TASK 2 --
 
@@ -49,13 +51,14 @@ onlyUnique inputFile outputFile =
 -- We'll implement this game in Haskell below. Your task
 -- will be to develop and test an AI player for this game.
 
-
-data GameState =
-  GameState {
-    remainingTurns :: Int,
+data GameState
+  = GameState
+  { remainingTurns :: Int,
     secretNumber :: Int
   }
+
 data Outcome = PlayerWon | PlayerLost deriving (Eq, Show)
+
 data Response = Lower | Higher deriving (Eq, Show)
 
 -- Player implementations will be modelled using two
@@ -68,12 +71,11 @@ data Response = Lower | Higher deriving (Eq, Show)
 -- The AI player will work in the State monad: it will make
 -- its `guess` using a deterministic knowledge state, and it
 -- will update its knowledge state based on responses.
-data Player m =
-  Player {
-    guess :: m Int,
+data Player m
+  = Player
+  { guess :: m Int,
     signalWrong :: Response -> m ()
   }
-
 
 -- The gameLoop can work in any monad, including m = IO.
 gameLoop :: (Monad m) => GameState -> Player m -> m Outcome
@@ -83,61 +85,73 @@ gameLoop (GameState r s) player = do
   case compare s g of
     LT -> do
       signalWrong player Lower
-      gameLoop (GameState (r-1) s) player
+      gameLoop (GameState (r - 1) s) player
     GT -> do
       signalWrong player Higher
-      gameLoop (GameState (r-1) s) player
+      gameLoop (GameState (r - 1) s) player
     EQ -> return PlayerWon
 
 -- The Human Player:
 
 human :: Player IO
-human = Player { guess = getGuess, signalWrong = printWrong }
+human = Player {guess = getGuess, signalWrong = printWrong}
   where
     getGuess = do
       putStr "Enter a number (1-100): "
       x <- getLine
       case readMaybe x of
         Nothing -> getGuess
-        Just i  -> return i
-    printWrong Lower  = putStrLn "Too high!"
+        Just i -> return i
+    printWrong Lower = putStrLn "Too high!"
     printWrong Higher = putStrLn "Too low!"
 
 play :: IO ()
 play = do
   putStrLn "I chose a random number between 1 and 100."
   putStrLn "You have five turns to guess it!"
-  s <- randomRIO (1,100)
+  s <- randomRIO (1, 100)
   outcome <- gameLoop (GameState 5 s) human
   case outcome of
-    PlayerWon  -> putStrLn "You got it!"
+    PlayerWon -> putStrLn "You got it!"
     PlayerLost -> do
       putStrLn "You ran out of guesses!"
       putStrLn $ "The number was " ++ show s ++ "."
 
-
 -- The AI player:
 
-data AiState =
-  AiState {
-    lowerBound :: Int,
+data AiState
+  = AiState
+  { lowerBound :: Int,
     upperBound :: Int
-  } deriving (Show, Eq)
-
+  }
+  deriving (Show, Eq)
 
 ai :: Player (State AiState)
-ai = Player { guess = aiGuess, signalWrong = aiWrong } where
-  aiGuess = error "'aiGuess' not implemented"
-  aiWrong = error "'aiWrong' not implemented"
-
+ai = Player {guess = aiGuess, signalWrong = aiWrong}
+  where
+    aiGuess = do
+      AiState lb ub <- get
+      let g = (lb + ub) `div` 2
+      return g
+    aiWrong Lower =
+      do
+        AiState lb ub <- get
+        let newUb = ((lb + ub) `div` 2) - 1
+        put $ AiState lb newUb
+    aiWrong Higher =
+      do
+        AiState lb ub <- get
+        let newLb = ((lb + ub) `div` 2) + 1
+        put $ AiState newLb ub
 
 -- Testing the AI:
 
 -- A wrapper class so that QuickCheck can
 -- generate secret numbers between 1 and 100.
 data Secret = Secret Int deriving (Show)
+
 instance Arbitrary Secret where
-  arbitrary = Secret <$> choose (1,100)
+  arbitrary = Secret <$> choose (1, 100)
 
 -- any working AI should be able to win in 100 guesses
 prop_winsEventually (Secret s) =
@@ -146,4 +160,3 @@ prop_winsEventually (Secret s) =
 -- a perfect AI can win any game in at most 7 guesses
 prop_winsOptimally (Secret s) =
   evalState (gameLoop (GameState 7 s) ai) (AiState 1 100) == PlayerWon
-
