@@ -1,7 +1,3 @@
-There is a well-known
-number guessing game
-where the player attempts
-to guess a secret integer
-number that the computer
-has chosen randomly
-between 1 and 100.
+apple   
+banana
+apple

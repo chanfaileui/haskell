@@ -3,6 +3,7 @@
 module Ex06 where
 
 import Control.Monad.State
+import Data.List (group, sort, (\\))
 import System.IO
 import System.Random
 import Test.QuickCheck
@@ -18,21 +19,24 @@ import Text.Read (readMaybe)
 -- You will want to use the `readFile` and `writeFile`
 -- procedures.
 
--- with referemce to https://www.educative.io/answers/how-to-remove-duplicates-from-a-list-in-haskell
-removeDuplicates :: (Eq a) => [a] -> [a]
-removeDuplicates [] = []
-removeDuplicates (x : xs) = x : removeDuplicates (filter (/= x) xs)
+-- modified from https://hackage.haskell.org/package/Unique-0.4.7.9/docs/Data-List-Unique.html
+complex :: (Eq a) => [a] -> [a]
+complex xs =
+  let (occurred, repeated) = go ([], []) xs
+   in reverse occurred \\ repeated
+  where
+    go (occurred, repeated) [] = (occurred, repeated)
+    go (occurred, repeated) (x : xs)
+      | x `elem` repeated = go (occurred, repeated) xs
+      | x `elem` occurred = go (occurred, x : repeated) xs
+      | otherwise = go (x : occurred, repeated) xs
 
 onlyUnique :: FilePath -> FilePath -> IO ()
-onlyUnique inputFile outputFile =
-  do
-    contents <- readFile inputFile
-    print (lines contents)
-    let newContents = removeDuplicates $ lines contents
-    print newContents
-    when (length newContents > 0) $
-      writeFile outputFile $
-        unlines newContents
+onlyUnique inputFile outputFile = do
+  contents <- readFile inputFile
+  let uniqueElems = complex (lines contents)
+      newContents = unlines uniqueElems
+  writeFile outputFile newContents
 
 -- TASK 2 --
 
