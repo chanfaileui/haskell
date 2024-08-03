@@ -1,0 +1,14 @@
+Cabal file warning in /Users/fai/Desktop/haskell/Ex06/Ex06.cabal@3:23: Packages with 'cabal-version: 1.12' or later should specify a specific version of the Cabal spec of the form 'cabal-version: x.y'. Use 'cabal-version: 1.12'.
+Using main module:
+1.  Package Ex06, component Ex06:exe:Ex06, with main-is file:
+    /Users/fai/Desktop/haskell/Ex06/Main.hs.
+
+Configuring GHCi with the following packages: Ex06.
+GHCi, version 9.4.8: https://www.haskell.org/ghc/  :? for help
+[1 of 3] Compiling Ex06             ( Ex06.hs, interpreted )
+[2 of 3] Compiling Main             ( /Users/fai/Desktop/haskell/Ex06/Main.hs, interpreted )
+Ok, two modules loaded.
+Loaded GHCi configuration from /Users/fai/.cache/stack/ghci-script/6e879327/ghci-script
+ghci> [1 of 1] Compiling Ex06             ( Ex06.hs, interpreted )
+Ok, one module loaded.
+ghci> ghci> ghci> ghci> ghci> ghci> ghci> Leaving GHCi.
