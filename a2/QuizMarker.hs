@@ -1,13 +1,13 @@
 module QuizMarker where
 
-import Data.Maybe(isJust)
-import Data.List(inits,nub)
-import Data.Char(isSpace,isDigit)
-import Data.Foldable(find)
-import Text.Read(readMaybe)
-import Data.Time.Format
+import Data.Char (isDigit, isSpace)
+import Data.Foldable (find)
+import Data.List (inits, nub)
+import Data.Maybe (isJust)
 import Data.Time.Clock
+import Data.Time.Format
 import Test.QuickCheck
+import Text.Read (readMaybe)
 
 {- A `Parser a` consumes input (of type `String`),
    and can either fail (represented by returning `Nothing`)
@@ -24,18 +24,19 @@ import Test.QuickCheck
     `Maybe (State String a)` (because then failure
     could not depend on what the input is).
  -}
-newtype Parser a = Parser (String -> Maybe (String,a))
+newtype Parser a = Parser (String -> Maybe (String, a))
 
 instance Functor Parser where
   fmap f (Parser p) = Parser $ fmap (fmap f) . p
 
 instance Applicative Parser where
-  pure x = Parser $ \s -> Just (s,x)
+  pure x = Parser $ \s -> Just (s, x)
   Parser f <*> Parser x =
-     Parser $ \s ->
-        do -- this is using the Maybe monad
-          (s',f') <- f s
-          fmap f' <$> x s'
+    Parser $ \s ->
+      do
+        -- this is using the Maybe monad
+        (s', f') <- f s
+        fmap f' <$> x s'
 
 {- `>>=` can be used to compose two parsers
    sequentially, so that the second parser
@@ -65,8 +66,9 @@ instance Monad Parser where
   return = pure
   Parser m >>= k =
     Parser $ \s ->
-      do -- this is using the Maybe monad
-        (s',a) <- m s
+      do
+        -- this is using the Maybe monad
+        (s', a) <- m s
         let Parser m' = k a
         m' s'
 
@@ -81,7 +83,7 @@ abort = Parser $ const Nothing
    input.
  -}
 try :: Maybe a -> Parser a
-try Nothing  = abort
+try Nothing = abort
 try (Just a) = return a
 
 {- `keyword s` is a parser
@@ -90,13 +92,15 @@ try (Just a) = return a
  -}
 keyword :: String -> Parser ()
 keyword kw =
-  Parser(\s ->
-           let (xs,ys) = splitAt (length kw) s
-           in
-             if xs == kw then
-               Just (ys,())
-             else
-               Nothing)
+  Parser
+    ( \s ->
+        let (xs, ys) = splitAt (length kw) s
+         in if xs == kw
+              then
+                Just (ys, ())
+              else
+                Nothing
+    )
 
 {- `parsePred f` is a parser
    that consumes and returns the
@@ -106,10 +110,11 @@ keyword kw =
  -}
 parsePred :: (Char -> Bool) -> Parser String
 parsePred f =
-  Parser(\s ->
-           let xs = takeWhile f s
-           in
-             Just (drop (length xs) s, xs))
+  Parser
+    ( \s ->
+        let xs = takeWhile f s
+         in Just (drop (length xs) s, xs)
+    )
 
 {- `least f` consumes and returns the
    shortest prefix of the input that
@@ -120,9 +125,11 @@ parsePred f =
  -}
 least :: (String -> Bool) -> Parser String
 least f =
-  Parser(\s -> do
-            xs <- find f $ inits s
-            return(drop (length xs) s, xs))
+  Parser
+    ( \s -> do
+        xs <- find f $ inits s
+        return (drop (length xs) s, xs)
+    )
 
 {- `orelse p1 p2` is a parser that
    behaves like p1, unless p1 fails.
@@ -148,21 +155,65 @@ orelse (Parser p1) (Parser p2) =
 
    Note that even if `p` fails,
    `parseWhile` should not fail.
+
+   parseWhile (keyword "+")  -> consumes all "+" at front and returns a list of units
  -}
 parseWhile :: Parser a -> Parser [a]
 parseWhile p =
   do
     x <- p
     xs <- parseWhile p
-    return (x:xs)
-  `orelse` return []
+    return (x : xs)
+    `orelse` return []
+
+{- ========================================================================== -}
+
+{-
+  data Data =
+  Number Double
+  | String String
+  | List [Data]
+  | Bool Bool
+  | Null
+  | JSONData JSON deriving (Eq,Show)
+
+  data Submission =
+  Submission { session :: String,
+               quizName :: String,
+               student :: String,
+               answers :: [[Int]],
+               time :: UTCTime
+             } deriving (Eq,Show)
+
+  data Question =
+  Question { number  :: Int,
+             qtype   :: QuestionType,
+             correct :: [Int]
+           } deriving (Eq,Show)
+
+  data Quiz =
+  Quiz { deadline :: UTCTime,
+         questions :: [Question]
+       } deriving (Eq,Show)
+-}
+
+{-====== HELPFUL FUNCTIONS =========-}
+
+assert :: Bool -> Parser ()
+assert True = return ()
+assert False = abort
+
+getInteger :: Data -> Maybe Int
+getInteger (Number n)
+  | toEnum (fromEnum n) == n = return $ fromEnum n
+getInteger _ = Nothing
 
 {- `first ps` behaves as the first parser
    in `ps` that does not fail. If they all
    fail, `first ps` fails too.
  -}
 first :: [Parser a] -> Parser a
-first = error "TODO: implement first"
+first = foldr orelse abort
 
 {- peekChar is a parser that
    returns the first character
@@ -175,7 +226,11 @@ first = error "TODO: implement first"
      == Just ("bla",'b')
  -}
 peekChar :: Parser Char
-peekChar = error "TODO: implement peekChar"
+peekChar =
+  Parser $ \s ->
+    case s of
+      [] -> Nothing
+      (c : cs) -> Just (s, c)
 
 {- parseChar is a parser that
    consumes (and returns) a single
@@ -188,14 +243,17 @@ peekChar = error "TODO: implement peekChar"
      == Just ("la",'b')
  -}
 parseChar :: Parser Char
-parseChar = error "TODO: implement parseChar"
+parseChar = do
+  x <- peekChar
+  keyword [x]
+  return x
 
 {- A parser that consumes all leading
    whitespace (as determined by isSpace).
    Should always succeed.
  -}
 whiteSpace :: Parser ()
-whiteSpace = error "TODO: implement whiteSpace"
+whiteSpace = return () <$> parsePred isSpace
 
 {- parseBool either
    consumes "true" to produce True,
@@ -203,14 +261,24 @@ whiteSpace = error "TODO: implement whiteSpace"
    or fails if unable.
  -}
 parseBool :: Parser Bool
-parseBool = error "TODO: implement parseBool"
+parseBool =
+  (return True <$> keyword "true")
+    `orelse` (return False <$> keyword "false")
 
 {- parsePositiveInt is a parser that parses a
    non-empty sequence of digits (0-9)
    into a number.
+   IMPORTANT: parsePositiveInt applied to "0" should return Nothing
  -}
 parsePositiveInt :: Parser Int
-parsePositiveInt = error "TODO: implement parseInt"
+parsePositiveInt = do
+  nm <- parsePred isDigit
+  n <- try $ readMaybe nm
+  if n <= 0
+    then
+      abort
+    else
+      return n
 
 {- parseDouble is a parser that parses a number on the
    format:
@@ -251,7 +319,14 @@ parseDouble = error "TODO: implement parseDouble"
          does less than optimally useful?
  -}
 parseString :: Parser String
-parseString = error "TODO: implement parseString"
+parseString = do
+  x <- parseChar
+  assert (x == '"')
+  s <- parsePred (\c -> c /= '"')
+  -- TODO: almost right.
+  --   doesn't handle "escaped double quotes"
+  --   doesn't handle non-terminated double quotes
+  error "TODO: implement parseString"
 
 {- `parseList l r p` parses a
    comma-separated list that
@@ -279,8 +354,30 @@ parseString = error "TODO: implement parseString"
    delimiters will be handy later.
  -}
 parseList :: Char -> Char -> Parser a -> Parser [a]
-parseList =
-  error "TODO: implement parseList"
+parseList l r p =
+  do
+    keyword [l]
+    whiteSpace
+    ( do
+        keyword [r]
+        return []
+        `orelse` do
+          xs <- parseBody
+          whiteSpace
+          keyword [r]
+          return xs
+      )
+  where
+    parseBody = do
+      x <- p
+      whiteSpace
+      xs <-
+        do
+          keyword ","
+          whiteSpace
+          parseBody
+          `orelse` return []
+      return (x : xs)
 
 {- `runParser s p` runs the parser p
    on input s.
@@ -292,8 +389,8 @@ parseList =
 runParser :: Parser a -> String -> Maybe a
 runParser (Parser p) s =
   case p s of
-    Just ([],a) -> Just a
-    _           -> Nothing
+    Just ([], a) -> Just a
+    _ -> Nothing
 
 {- `runParserPartial s p` runs the parser p
    on input s.
@@ -306,7 +403,7 @@ runParser (Parser p) s =
    should be considered malformed, which is
    what `runParser` handles.
  -}
-runParserPartial :: Parser a -> String -> Maybe(String,a)
+runParserPartial :: Parser a -> String -> Maybe (String, a)
 runParserPartial (Parser p) s = p s
 
 {- Now for our JSON parser.
@@ -314,7 +411,7 @@ runParserPartial (Parser p) s = p s
    JSON objects, which are key-value pairs
    mapping names to values.
  -}
-data JSON = JSON [(String,Data)] deriving (Eq,Show)
+data JSON = JSON [(String, Data)] deriving (Eq, Show)
 
 {- Values in a JSON object can be of the following types:
    - a floating-point number
@@ -324,13 +421,14 @@ data JSON = JSON [(String,Data)] deriving (Eq,Show)
    - null
    - another JSON object.
  -}
-data Data =
-  Number Double
+data Data
+  = Number Double
   | String String
   | List [Data]
   | Bool Bool
   | Null
-  | JSONData JSON deriving (Eq,Show)
+  | JSONData JSON
+  deriving (Eq, Show)
 
 {- This Arbitrary instance only generates keys in the
     range a..z.
@@ -342,22 +440,26 @@ data Data =
  -}
 instance Arbitrary JSON where
   arbitrary = JSON <$> listOf ((,) <$> key <*> arbitrary)
-    where key = listOf $ elements ['a'..'z']
+    where
+      key = listOf $ elements ['a' .. 'z']
   shrink (JSON d) =
     JSON <$> shrinkList (const []) d
 
 instance Arbitrary Data where
   shrink (JSONData j) = JSONData <$> shrink j
   shrink (List l) = List <$> shrink l
-  shrink d = []  
-  arbitrary = frequency [
-                     (3,Number   <$> arbitrary),
-                     (3,String   <$> arbitrary),
-                     (1,List     <$> smaller arbitrary),
-                     (3,Bool     <$> arbitrary),
-                     (1,JSONData <$> smaller arbitrary),
-                     (1,pure Null)] where
-    smaller g = sized (\n -> resize (n `div` 4) g)
+  shrink d = []
+  arbitrary =
+    frequency
+      [ (3, Number <$> arbitrary),
+        (3, String <$> arbitrary),
+        (1, List <$> smaller arbitrary),
+        (3, Bool <$> arbitrary),
+        (1, JSONData <$> smaller arbitrary),
+        (1, pure Null)
+      ]
+    where
+      smaller g = sized (\n -> resize (n `div` 4) g)
 
 {- A parser for JSON objects.
 
@@ -378,7 +480,21 @@ instance Arbitrary Data where
     function needs to be mutually recursive with parseData.
  -}
 parseJSON :: Parser JSON
-parseJSON = error "TODO: implement parseJSON"
+parseJSON = do
+  whiteSpace
+  xs <- parseList '{' '}' parseKeyValue
+  whiteSpace
+  return (JSON xs)
+
+parseKeyValue :: Parser (String, Data)
+parseKeyValue = do
+  key <- parseString
+  whiteSpace
+  keyword ":"
+  whiteSpace
+  value <- parseData
+  whiteSpace
+  return (key, value)
 
 {- A parser for JSON data values.
 
@@ -414,31 +530,34 @@ toTime = parseTimeM True defaultTimeLocale "%F %X"
     would have [[4],[1,3]]
   - A submission time.
  -}
-data Submission =
-  Submission { session :: String,
-               quizName :: String,
-               student :: String,
-               answers :: [[Int]],
-               time :: UTCTime
-             } deriving (Eq,Show)
+data Submission
+  = Submission
+  { session :: String,
+    quizName :: String,
+    student :: String,
+    answers :: [[Int]],
+    time :: UTCTime
+  }
+  deriving (Eq, Show)
 
 instance Arbitrary Submission where
   arbitrary =
-    Submission <$>
-    arbitrary <*>
-    arbitrary <*>
-    arbitrary <*>
-    arbitraryAnswers <*>
-    arbitraryTime where arbitraryAnswers = map (map getPositive) <$> arbitrary
+    Submission
+      <$> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+      <*> arbitraryAnswers
+      <*> arbitraryTime
+    where
+      arbitraryAnswers = map (map getPositive) <$> arbitrary
 
 -- Likes generating years in the far future.
 arbitraryTime :: Gen UTCTime
 arbitraryTime =
   do
     Large d <- arbitrary
-    t <- choose (0,86400)
+    t <- choose (0, 86400)
     return $ UTCTime (toEnum $ abs d) (secondsToDiffTime t)
-          
 
 {- These utility functions will be handy I promise -}
 getString :: Data -> Maybe String
@@ -485,7 +604,13 @@ getJSON _ = Nothing
    Duplicates of other keys should be ignored.
  -}
 toSubmission :: JSON -> Maybe Submission
-toSubmission = error "TODO: implement toSubmission"
+toSubmission (JSON keys) = do
+  session <- lookup "session" keys >>= getString
+  quiz_name <- lookup "quiz_name" keys >>= getString
+  student <- lookup "student" keys >>= getString
+  answers <- lookup "answers" keys >>= getList >>= mapM getList >>= mapM (mapM getInteger)
+  time <- lookup "time" keys >>= getString >>= toTime
+  return $ Submission session quiz_name student answers time
 
 {- This function should convert a JSON object
    to a key-value store where the values are
@@ -494,34 +619,38 @@ toSubmission = error "TODO: implement toSubmission"
    Should fail if the JSON object holds one or
    more values that are not valid submissions.
  -}
-toSubmissions :: JSON -> Maybe [(String,Submission)]
+toSubmissions :: JSON -> Maybe [(String, Submission)]
 toSubmissions = error "TODO: implement toResults"
 
 {- There are two kinds of questions:
    - multiple-choice, represented by CheckBox
    - single-choice, represented by Radio
  -}
-data QuestionType = Radio | CheckBox deriving (Eq,Show)
+data QuestionType = Radio | CheckBox deriving (Eq, Show)
 
-instance Arbitrary QuestionType where arbitrary = elements [Radio,CheckBox]
+instance Arbitrary QuestionType where arbitrary = elements [Radio, CheckBox]
 
 {- A question has:
    - a question number
    - a question type
    - a list of correct answers
  -}
-data Question =
-  Question { number  :: Int,
-             qtype   :: QuestionType,
-             correct :: [Int]
-           } deriving (Eq,Show)
+data Question
+  = Question
+  { number :: Int,
+    qtype :: QuestionType,
+    correct :: [Int]
+  }
+  deriving (Eq, Show)
 
 {- A quiz comprises a deadline and a list of questions.
  -}
-data Quiz =
-  Quiz { deadline :: UTCTime,
-         questions :: [Question]
-       } deriving (Eq,Show)
+data Quiz
+  = Quiz
+  { deadline :: UTCTime,
+    questions :: [Question]
+  }
+  deriving (Eq, Show)
 
 instance Arbitrary Question where
   arbitrary = do
@@ -530,9 +659,9 @@ instance Arbitrary Question where
     correct <- listOf1 (getPositive <$> arbitrary)
     return $ Question n qtype correct
 
-nubBy :: Eq b => (a -> b) -> [a] -> [a]
+nubBy :: (Eq b) => (a -> b) -> [a] -> [a]
 nubBy f [] = []
-nubBy f (x:xs) = x:nubBy f (filter ((/= f x) . f) xs)
+nubBy f (x : xs) = x : nubBy f (filter ((/= f x) . f) xs)
 
 {- This generator is set up to generate quizzes with distinct
    question numbers starting from 1.
@@ -545,7 +674,7 @@ instance Arbitrary Quiz where
     where
       arbitraryQuestions = do
         qs <- arbitrary
-        return $ map (\(n,q) -> Question n (qtype q) (correct q)) $ zip [1..] qs
+        return $ map (\(n, q) -> Question n (qtype q) (correct q)) $ zip [1 ..] qs
 
 {- `parseQuiz` is a parser that
    reads a quiz from an input representing
@@ -575,7 +704,32 @@ instance Arbitrary Quiz where
    and there must be at least one answer.
  -}
 parseQuiz :: Parser Quiz
-parseQuiz = error "TODO: implement parseQuiz"
+parseQuiz = do
+  time <- parsePred (/= '\n') >>= try . toTime
+  keyword "\n"
+  questions <- parseQuestion 1
+  -- Q: Do you want to deal with empty list of questions? or not?
+  -- assert (questions /= [])
+  return $ Quiz time questions
+
+parseQuestion :: Int -> Parser [Question]
+parseQuestion n =
+  ( do
+      n' <- parsePositiveInt
+      assert $ n == n'
+      keyword "|"
+      tp <-
+        ( (return Radio <$> keyword "radio")
+            `orelse` (return CheckBox <$> keyword "checkbox")
+          )
+      keyword "|"
+      m <- parsePositiveInt
+      ms <- parseWhile (keyword "," >> whiteSpace >> parsePositiveInt)
+      keyword "\n"
+      remQs <- parseQuestion (n + 1) `orelse` return []
+      return $ (Question n tp (m : ms)) : remQs
+  )
+    `orelse` return []
 
 {- And now for the business logic!
 
