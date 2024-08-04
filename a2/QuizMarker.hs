@@ -635,7 +635,7 @@ toSubmission (JSON keys) = do
   session <- lookup "session" keys >>= getString
   quiz_name <- lookup "quiz_name" keys >>= getString
   student <- lookup "student" keys >>= getString
-  answers <- lookup "answers" keys >>= getList >>= mapM getList >>= mapM (mapM getInteger)
+  answers <- lookup "answers" keys >>= getList >>= mapM getList >>= mapM (mapM getInteger) -- list of lists of numbers
   time <- lookup "time" keys >>= getString >>= toTime
   return $ Submission session quiz_name student answers time
 
@@ -645,9 +645,16 @@ toSubmission (JSON keys) = do
 
    Should fail if the JSON object holds one or
    more values that are not valid submissions.
+
+   Note: toSubmissions (JSON []) should give Just []
  -}
 toSubmissions :: JSON -> Maybe [(String, Submission)]
-toSubmissions = error "TODO: implement toResults"
+toSubmissions (JSON keys) = mapM toSubmissionPair keys
+  where
+    toSubmissionPair (k, v) = do
+      jsonObj <- getJSON v
+      submission <- toSubmission jsonObj
+      return (k, submission)
 
 {- There are two kinds of questions:
    - multiple-choice, represented by CheckBox

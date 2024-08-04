@@ -145,6 +145,40 @@ parseListTests =
 
 allParseListTestsPass = all (== True) parseListTests
 
+-- Tests for parseJSON
+parseJSONTest1 = runParserPartial parseJSON "{\"key\":\"value\"}" == Just ("", JSON [("key", String "value")])
+
+parseJSONTest2 = runParserPartial parseJSON "{\"key1\":123, \"key2\":true}" == Just ("", JSON [("key1", Number 123), ("key2", Bool True)])
+
+parseJSONTest3 = runParserPartial parseJSON "{\"key\": {\"nestedKey\": \"nestedValue\"}}" == Just ("", JSON [("key", JSONData (JSON [("nestedKey", String "nestedValue")]))])
+
+parseJSONTest4 = runParserPartial parseJSON "{}" == Just ("", JSON [])
+
+parseJSONTest5 = runParserPartial parseJSON "{\"key\": [1, \"string\", false]}" == Just ("", JSON [("key", List [Number 1, String "string", Bool False])])
+
+parseJSONTests = [parseJSONTest1, parseJSONTest2, parseJSONTest3, parseJSONTest4, parseJSONTest5]
+
+allParseJSONTestsPass = all (== True) parseJSONTests
+
+-- Tests for parseData
+parseDataTest1 = runParserPartial parseData "\"stringValue\"" == Just ("", String "stringValue")
+
+parseDataTest2 = runParserPartial parseData "123.45" == Just ("", Number 123.45)
+
+parseDataTest3 = runParserPartial parseData "true" == Just ("", Bool True)
+
+parseDataTest4 = runParserPartial parseData "false" == Just ("", Bool False)
+
+parseDataTest5 = runParserPartial parseData "null" == Just ("", Null)
+
+parseDataTest6 = runParserPartial parseData "[1, \"string\", true]" == Just ("", List [Number 1, String "string", Bool True])
+
+parseDataTest7 = runParserPartial parseData "{\"nestedKey\": \"nestedValue\"}" == Just ("", JSONData (JSON [("nestedKey", String "nestedValue")]))
+
+parseDataTests = [parseDataTest1, parseDataTest2, parseDataTest3, parseDataTest4, parseDataTest5, parseDataTest6, parseDataTest7]
+
+allParseDataTestsPass = all (== True) parseDataTests
+
 -- Aggregating all test results
 allTestsPass =
   and
@@ -156,7 +190,9 @@ allTestsPass =
       allParsePositiveIntTestsPass,
       allParseDoubleTestsPass,
       allParseStringTestsPass,
-      allParseListTestsPass
+      allParseListTestsPass,
+      allParseJSONTestsPass,
+      allParseDataTestsPass
     ]
 
 -- Main function to run all tests
@@ -172,3 +208,5 @@ main = do
   putStrLn $ "ParseDouble tests: " ++ show allParseDoubleTestsPass
   putStrLn $ "ParseString tests: " ++ show allParseStringTestsPass
   putStrLn $ "ParseList tests: " ++ show allParseListTestsPass
+  putStrLn $ "parseJSON tests: " ++ show allParseJSONTestsPass
+  putStrLn $ "parseData tests: " ++ show allParseDataTestsPass
