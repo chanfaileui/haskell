@@ -111,7 +111,9 @@ parseStringTest5 = runParserPartial parseString "\"\"" == Just ("", "")
 
 parseStringTest6 = runParserPartial parseString "\n" == Nothing
 
-parseStringTests = [parseStringTest1, parseStringTest2, parseStringTest3, parseStringTest4, parseStringTest5, parseStringTest6]
+parseStringTest7 = runParserPartial parseString "" == Nothing
+
+parseStringTests = [parseStringTest1, parseStringTest2, parseStringTest3, parseStringTest4, parseStringTest5, parseStringTest6, parseStringTest7]
 
 allParseStringTestsPass = all (== True) parseStringTests
 

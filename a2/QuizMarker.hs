@@ -742,8 +742,6 @@ parseQuiz = do
   time <- parsePred (/= '\n') >>= try . toTime
   keyword "\n"
   questions <- parseQuestion 1
-  -- Q: Do you want to deal with empty list of questions? or not?
-  -- assert (questions /= [])
   return $ Quiz time questions
 
 parseQuestion :: Int -> Parser [Question]
@@ -753,9 +751,8 @@ parseQuestion n =
       assert $ n == n'
       keyword "|"
       tp <-
-        ( (return Radio <$> keyword "radio")
-            `orelse` (return CheckBox <$> keyword "checkbox")
-          )
+        (return Radio <$> keyword "radio")
+          `orelse` (return CheckBox <$> keyword "checkbox")
       keyword "|"
       m <- parsePositiveInt
       ms <- parseWhile (keyword "," >> whiteSpace >> parsePositiveInt)
@@ -807,7 +804,8 @@ markQuestion q as
      if submitted at or before the deadline.
  -}
 markSubmission :: Quiz -> Submission -> Double
-markSubmission = error "TODO: implement marker"
+markSubmission q s =
+  if time s > deadline q then 0 else sum $ zipWith markQuestion (questions q) (answers s)
 
 {- `marker quizStr submissionsStr`
    combines the parsers and business logic as follows:
@@ -815,7 +813,7 @@ markSubmission = error "TODO: implement marker"
    If `quizStr` can be parsed to a quiz,
    and if `submissionsStr` can be parsed to
    a `[(String,Submission)]` using
-   parseJSON and toResults,
+   parseJSON and toSubmissions,
    calculate quiz marks for each student
    and present them in the form of an
    sms update file.
@@ -833,7 +831,10 @@ markSubmission = error "TODO: implement marker"
    The order of the lines is not important.
  -}
 marker :: String -> String -> Maybe String
-marker = error "TODO: implement marker"
+marker quizStr submissionsStr = do
+  quiz <- runParser parseQuiz quizStr
+  submissions <- runParser parseJSON submissionsStr >>= toSubmissions
+  return $ unlines $ map (\(k, v) -> k ++ "|" ++ quizName v ++ "|" ++ show (markSubmission quiz v)) submissions
 
 {- Use this to read a quiz key and submissions
    file from the file system, and print the
