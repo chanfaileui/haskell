@@ -526,7 +526,15 @@ parseKeyValue = do
     function needs to be mutually recursive with parseJSON.
  -}
 parseData :: Parser Data
-parseData = error "TODO: implement parseData"
+parseData =
+  first
+    [ Bool <$> parseBool,
+      Number <$> parseDouble,
+      String <$> parseString,
+      return Null <$> keyword "null",
+      List <$> parseList '[' ']' parseData,
+      JSONData <$> parseJSON
+    ]
 
 {- Time strings are represented in the following format:
 
