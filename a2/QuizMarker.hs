@@ -1,5 +1,6 @@
 module QuizMarker where
 
+import Debug.Trace (trace)
 import Data.Char (isDigit, isSpace)
 import Data.Foldable (find)
 import Data.List (inits, nub)
@@ -213,7 +214,7 @@ getInteger _ = Nothing
    fail, `first ps` fails too.
  -}
 first :: [Parser a] -> Parser a
-first = foldr orelse abort
+first ps = foldr orelse abort ps
 
 {- peekChar is a parser that
    returns the first character
@@ -293,7 +294,13 @@ parsePositiveInt = do
    We do not support such numbers.
  -}
 parseDouble :: Parser Double
-parseDouble = error "TODO: implement parseDouble"
+parseDouble = do
+  sign <- (keyword "-" >> return (-1)) `orelse` return 1
+  intPart <- parsePred isDigit
+  fracPart <- (keyword "." >> parsePred isDigit) `orelse` return ""
+  let numberStr = intPart ++ if null fracPart then "" else "." ++ fracPart
+  number <- try $ readMaybe numberStr
+  return (sign * number)
 
 {- `parseString` is a parser that consumes a quoted
    string delimited by " quotes, and returns it.
@@ -322,11 +329,21 @@ parseString :: Parser String
 parseString = do
   x <- parseChar
   assert (x == '"')
-  s <- parsePred (\c -> c /= '"')
+  s <- parsePred (/= '"')  -- Consumes until the next double quote
+  keyword "\""             -- Ensure that the string ends with a closing quote
+
+  -- Prepare and debug the input for readMaybe
+  let inputString = "\"" ++ s ++ "\""
+  let debugInfo = "Input to readMaybe: " ++ show inputString
+  case readMaybe inputString :: Maybe String of
+    Just str -> trace ("readMaybe succeeded: " ++ show str) (return str)
+    Nothing  -> trace "readMaybe failed, invalid string format or escaped sequence" abort
+
+  -- trace ("this is result: " ++ show result) $ return result
   -- TODO: almost right.
   --   doesn't handle "escaped double quotes"
   --   doesn't handle non-terminated double quotes
-  error "TODO: implement parseString"
+  -- error "TODO: implement parseString"
 
 {- `parseList l r p` parses a
    comma-separated list that
@@ -760,7 +777,12 @@ parseQuestion n =
      for purposes of the above tally.
  -}
 markQuestion :: Question -> [Int] -> Double
-markQuestion = error "TODO: implement markQuestion"
+markQuestion q as
+  | qtype q == Radio = toEnum $ fromEnum $ length (nub as) == 1 && head as `elem` correct q
+  | otherwise =
+      let right = toEnum $ length (filter (\a -> a `elem` correct q) (nub as))
+          wrong = toEnum $ length (filter (\a -> not (a `elem` correct q)) (nub as))
+       in max 0 ((right - wrong) / (toEnum $ length (correct q)))
 
 {- The mark assigned to a quiz submission is:
    - 0 if submitted after the deadline.
