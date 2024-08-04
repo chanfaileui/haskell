@@ -1,12 +1,12 @@
 module QuizMarker where
 
-import Debug.Trace (trace)
 import Data.Char (isDigit, isSpace)
 import Data.Foldable (find)
 import Data.List (inits, nub)
 import Data.Maybe (isJust)
 import Data.Time.Clock
 import Data.Time.Format
+import Debug.Trace (trace)
 import Test.QuickCheck
 import Text.Read (readMaybe)
 
@@ -325,25 +325,82 @@ parseDouble = do
          And how is what (readMaybe "[]")::Maybe String
          does less than optimally useful?
  -}
+-- parseString :: Parser String
+-- parseString = do
+--   x <- parseChar
+--   assert (x == '"')
+--   s <- parsePred (/= '"')  -- Consumes until the next double quote
+--   keyword "\""             -- Ensure that the string ends with a closing quote
+
+--   -- Prepare and debug the input for readMaybe
+--   let inputString = "\"" ++ s ++ "\""
+--   let debugInfo = "Input to readMaybe: " ++ show inputString
+--   case readMaybe inputString :: Maybe String of
+--     Just str -> trace ("readMaybe succeeded: " ++ show str) (return str)
+--     Nothing  -> trace "readMaybe failed, invalid string format or escaped sequence" abort
+
+-- parseString :: Parser String
+-- parseString = do
+--   -- Step 1: Parse the opening double quote
+--   x <- parseChar
+--   assert (x == '"')
+
+--   -- Step 2: Parse the content until the closing non-escaped double quote
+--   s <- parseContent ""
+
+--   -- Step 3: Ensure the string ends with a closing double quote
+--   keyword "\""
+
+--   trace ("parseContent succeeded: " ++ show s) (return s)
+--   -- -- Prepare and debug the input for readMaybe
+--   -- let inputString = "\"" ++ show s ++ "\""
+--   -- -- let inputString = s
+--   -- let debugInfo = "Input to readMaybe: " ++ show inputString
+--   -- trace debugInfo $ case readMaybe inputString :: Maybe String of
+--   --   Just str -> trace ("readMaybe succeeded: " ++ show str) (return str)
+--   --   Nothing -> trace "readMaybe failed, invalid string format or escaped sequence" abort
+
+-- -- Helper function to parse the content of the string with debug traces
+-- parseContent :: String -> Parser String
+-- parseContent acc = do
+--   c <- parseChar
+--   trace ("parseContent: read char " ++ show c) $
+--     case c of
+--       -- End of string
+--       '"' -> trace ("parseContent: end of string with accumulator " ++ show acc) (return acc)
+--       -- Handle escaped characters
+--       '\\' -> do
+--         nextChar <- parseChar
+--         trace ("parseContent: escaped char " ++ show nextChar) $ do
+--           rest <- parseContent (acc ++ "\\" ++ [nextChar])
+--           return rest
+--       -- Regular character
+--       _ -> do
+--         trace ("parseContent: regular char " ++ show c) $ do
+--           rest <- parseContent (acc ++ [c])
+--           return rest
+
 parseString :: Parser String
 parseString = do
   x <- parseChar
   assert (x == '"')
-  s <- parsePred (/= '"')  -- Consumes until the next double quote
-  keyword "\""             -- Ensure that the string ends with a closing quote
 
-  -- Prepare and debug the input for readMaybe
-  let inputString = "\"" ++ s ++ "\""
-  let debugInfo = "Input to readMaybe: " ++ show inputString
-  case readMaybe inputString :: Maybe String of
-    Just str -> trace ("readMaybe succeeded: " ++ show str) (return str)
-    Nothing  -> trace "readMaybe failed, invalid string format or escaped sequence" abort
+  -- Parse the content until closing non-escaped double quote
+  s <- parseContent ""
 
-  -- trace ("this is result: " ++ show result) $ return result
-  -- TODO: almost right.
-  --   doesn't handle "escaped double quotes"
-  --   doesn't handle non-terminated double quotes
-  -- error "TODO: implement parseString"
+  case readMaybe ("\"" ++ s ++ "\"") :: Maybe String of
+    Just str -> return str
+    Nothing -> abort
+
+parseContent :: String -> Parser String
+parseContent acc = do
+  c <- parseChar
+  case c of
+    '"' -> return acc -- End of string
+    '\\' -> do
+      nextChar <- parseChar
+      parseContent (acc ++ ['\\', nextChar])
+    _ -> parseContent (acc ++ [c])
 
 {- `parseList l r p` parses a
    comma-separated list that
